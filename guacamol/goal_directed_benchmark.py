@@ -18,8 +18,15 @@ class GoalDirectedBenchmarkResult:
     Contains the results of a goal-directed benchmark.
     """
 
-    def __init__(self, benchmark_name: str, score: float, optimized_molecules: List[Tuple[str, float]],
-                 execution_time: float, number_scoring_function_calls: int, metadata: Dict[str, Any]) -> None:
+    def __init__(
+        self,
+        benchmark_name: str,
+        score: float,
+        optimized_molecules: List[Tuple[str, float]],
+        execution_time: float,
+        number_scoring_function_calls: int,
+        metadata: Dict[str, Any],
+    ) -> None:
         """
         Args:
             benchmark_name: name of the goal-directed benchmark
@@ -42,9 +49,13 @@ class GoalDirectedBenchmark:
     This class assesses how well a model is able to generate molecules satisfying a given objective.
     """
 
-    def __init__(self, name: str, objective: ScoringFunction,
-                 contribution_specification: ScoreContributionSpecification,
-                 starting_population: Optional[List[str]] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        objective: ScoringFunction,
+        contribution_specification: ScoreContributionSpecification,
+        starting_population: Optional[List[str]] = None,
+    ) -> None:
         """
         Args:
             name: Benchmark name
@@ -53,7 +64,7 @@ class GoalDirectedBenchmark:
         """
         self.name = name
         self.objective = objective
-        self.wrapped_objective = ScoringFunctionWrapper(scoring_function=objective)
+        self.wrapped_objective = ScoringFunctionWrapper(scoring_function=objective, name=name)
         self.contribution_specification = contribution_specification
         self.starting_population = starting_population
 
@@ -67,10 +78,11 @@ class GoalDirectedBenchmark:
         """
         number_molecules_to_generate = max(self.contribution_specification.top_counts)
         start_time = time.time()
-        molecules = model.generate_optimized_molecules(scoring_function=self.wrapped_objective,
-                                                       number_molecules=number_molecules_to_generate,
-                                                       starting_population=self.starting_population
-                                                       )
+        molecules = model.generate_optimized_molecules(
+            scoring_function=self.wrapped_objective,
+            number_molecules=number_molecules_to_generate,
+            starting_population=self.starting_population,
+        )
         end_time = time.time()
 
         canonicalized_molecules = canonicalize_list(molecules, include_stereocenters=False)
@@ -79,9 +91,11 @@ class GoalDirectedBenchmark:
 
         if len(unique_molecules) != number_molecules_to_generate:
             number_missing = number_molecules_to_generate - len(unique_molecules)
-            logger.warning(f'An incorrect number of distinct molecules was generated: '
-                           f'{len(unique_molecules)} instead of {number_molecules_to_generate}. '
-                           f'Padding scores with {number_missing} zeros...')
+            logger.warning(
+                f"An incorrect number of distinct molecules was generated: "
+                f"{len(unique_molecules)} instead of {number_molecules_to_generate}. "
+                f"Padding scores with {number_missing} zeros..."
+            )
             scores.extend([0.0] * number_missing)
 
         global_score, top_x_dict = compute_global_score(self.contribution_specification, scores)
@@ -96,14 +110,16 @@ class GoalDirectedBenchmark:
 
         metadata: Dict[str, Any] = {}
         metadata.update(top_x_dict)
-        metadata['internal_similarity_max'] = internal_similarities.max()
-        metadata['internal_similarity_mean'] = internal_similarities.mean()
-        metadata["internal_similarity_histogram_density"] = int_simi_histogram[0].tolist(),
-        metadata["internal_similarity_histogram_bins"] = int_simi_histogram[1].tolist(),
+        metadata["internal_similarity_max"] = internal_similarities.max()
+        metadata["internal_similarity_mean"] = internal_similarities.mean()
+        metadata["internal_similarity_histogram_density"] = (int_simi_histogram[0].tolist(),)
+        metadata["internal_similarity_histogram_bins"] = (int_simi_histogram[1].tolist(),)
 
-        return GoalDirectedBenchmarkResult(benchmark_name=self.name,
-                                           score=global_score,
-                                           optimized_molecules=sorted_scored_molecules,
-                                           execution_time=end_time - start_time,
-                                           number_scoring_function_calls=self.wrapped_objective.evaluations,
-                                           metadata=metadata)
+        return GoalDirectedBenchmarkResult(
+            benchmark_name=self.name,
+            score=global_score,
+            optimized_molecules=sorted_scored_molecules,
+            execution_time=end_time - start_time,
+            number_scoring_function_calls=self.wrapped_objective.evaluations,
+            metadata=metadata,
+        )
